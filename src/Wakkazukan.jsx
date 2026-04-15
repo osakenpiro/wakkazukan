@@ -1247,44 +1247,7 @@ export default function WakkazukanV46(){
       <a href="./manual.html" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#e9b44c";e.currentTarget.style.borderColor="#e9b44c";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>📘 マニュアル</a>
       <a href="./manual.html#feedback" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#e9b44c";e.currentTarget.style.borderColor="#e9b44c";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>💬 ご意見</a>
       <a href="https://osakenpiro.github.io/banet-map/" target="_blank" rel="noreferrer" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#06d6a0";e.currentTarget.style.borderColor="#06d6a0";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>🌀 バネットマップ</a>
-    </div>
-    {/* ═══ VR共通検索 ═══ */}
-    <div style={{position:"absolute",top:8,left:10,zIndex:50}}>
-      <div style={{position:"relative"}}>
-        <input value={searchQuery} onChange={function(e){setSearchQuery(e.target.value);setSearchOpen(true);}}
-          onFocus={function(){if(searchQuery.trim())setSearchOpen(true);}}
-          placeholder="🔍 検索…"
-          style={{width:isSearchOpen&&searchQuery?200:120,padding:"5px 26px 5px 8px",fontSize:12,
-            background:"#0a162899",border:"1px solid "+(searchQuery?"#e9b44c":"#ffffff22"),borderRadius:10,
-            color:"#e0e0e0",outline:"none",transition:"all 0.25s",backdropFilter:"blur(6px)",
-            fontFamily:"'Noto Sans JP',sans-serif"}}/>
-        {searchQuery&&<button onClick={function(){setSearchQuery("");setSearchOpen(false);}} style={{
-          position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",
-          background:"none",border:"none",color:"#ffffff55",fontSize:11,cursor:"pointer",padding:2}}>✕</button>}
-        {isSearchOpen&&searchResults.length>0&&<div style={{
-          position:"absolute",top:"100%",left:0,marginTop:4,width:240,maxHeight:300,overflowY:"auto",
-          background:"rgba(10,22,40,0.97)",border:"1px solid #e9b44c55",borderRadius:10,
-          boxShadow:"0 6px 24px rgba(0,0,0,0.5)",backdropFilter:"blur(8px)",zIndex:60}}>
-          <div style={{padding:"6px 10px",fontSize:10,color:"#e9b44c",fontWeight:"bold",borderBottom:"1px solid #ffffff11"}}>
-            {searchResults.length}件{searchResults.length>=12?" (上位12件)":""}
-          </div>
-          {searchResults.map(function(item){
-            return <div key={item.id} onClick={function(){handleSearchJump(item.id);}}
-              style={{padding:"8px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,
-                fontSize:13,borderBottom:"1px solid #ffffff08",transition:"background 0.15s"}}
-              onMouseEnter={function(e){e.currentTarget.style.background="#ffffff11";}}
-              onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>
-              <span style={{fontSize:16}}>{item.emoji||"·"}</span>
-              <span style={{flex:1,color:"#e0e0e0"}}>{item.name}</span>
-              {item.gems&&item.gems[0]&&<span style={{fontSize:10,color:"#ffffff55"}}>{item.gems[0].value}</span>}
-            </div>;
-          })}
-        </div>}
-        {isSearchOpen&&searchQuery.trim()&&searchResults.length===0&&<div style={{
-          position:"absolute",top:"100%",left:0,marginTop:4,width:200,padding:"10px 12px",
-          background:"rgba(10,22,40,0.97)",border:"1px solid #ffffff22",borderRadius:10,
-          fontSize:12,color:"#ffffff55",textAlign:"center"}}>該当なし</div>}
-      </div>
+      <a href="https://osakenpiro.github.io/banet-map/" target="_blank" rel="noreferrer" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#06d6a0";e.currentTarget.style.borderColor="#06d6a0";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>🌀 バネットマップ</a>
     </div>
     {/* ═══ Dataset switcher — topmost tab row ═══ */}
     <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:6,paddingTop:2}}>
