@@ -1058,6 +1058,41 @@ export default function WakkazukanV46(){
   // Popup states
   var depthPopupState=useState(false),depthPopup=depthPopupState[0],setDepthPopup=depthPopupState[1];
   var prepGridState=useState(false),prepGrid=prepGridState[0],setPrepGrid=prepGridState[1];
+  // VR共通検索
+  var searchState=useState(""),searchQuery=searchState[0],setSearchQuery=searchState[1];
+  var searchOpen=useState(false),isSearchOpen=searchOpen[0],setSearchOpen=searchOpen[1];
+  var searchResults=useMemo(function(){
+    if(!searchQuery.trim()||!P)return[];
+    var q=searchQuery.trim().toLowerCase();
+    var hits=[];
+    var ids=Object.keys(P);
+    for(var i=0;i<ids.length;i++){
+      var item=P[ids[i]];
+      var haystack=[item.name||"",item.id||"",item.emoji||"",item.desc||""].join(" ").toLowerCase();
+      if(item.gems){for(var g=0;g<item.gems.length;g++){haystack+=" "+(item.gems[g].value||"").toLowerCase();}}
+      if(haystack.indexOf(q)>=0) hits.push(item);
+    }
+    return hits.slice(0,12);
+  },[searchQuery,P]);
+  var handleSearchJump=useCallback(function(itemId){
+    // Find which preparate contains this item, then navigate
+    for(var pi=0;pi<PREPARATES.length;pi++){
+      var node=findNode(PREPARATES[pi].tree,itemId);
+      if(node){
+        // Found! Switch to this preparate if needed
+        if(pi!==prepIdx) switchPrep(pi,"down");
+        // Navigate to the item's parent (so the item is visible as a child)
+        var parentNode=getParent(PREPARATES[pi].tree,itemId);
+        if(parentNode) go(parentNode.id,"in");
+        else go(itemId,"in");
+        setSearchQuery("");setSearchOpen(false);
+        return;
+      }
+    }
+    // If not in any tree as a node, try finding as a leaf
+    go(itemId,"in");
+    setSearchQuery("");setSearchOpen(false);
+  },[PREPARATES,prepIdx,switchPrep,go]);
 
   // ═ When dataset changes: reset prepIdx & focus ═
   var switchDataset = useCallback(function(newDid){
@@ -1171,11 +1206,85 @@ export default function WakkazukanV46(){
     Math.round(95+(10-95)*mainDepthT) + ")";
 
   return <div style={{width:"100%",minHeight:"100vh",background:containerBg,fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif",color:"#e0e0e0",display:"flex",flexDirection:"column",alignItems:"center",padding:"8px 0",gap:isCompare?6:0,transition:"background .5s ease",position:"relative"}}>
-    {/* ═══ Beta banner — top-right fixed ═══ */}
+    {/* ═══ Beta banner + Search — top-right fixed ═══ */}
     <div style={{position:"absolute",top:8,right:10,display:"flex",alignItems:"center",gap:6,zIndex:50,fontSize:10,fontFamily:"'Noto Sans JP',sans-serif"}}>
+      {/* VR共通検索 */}
+      <div style={{position:"relative"}}>
+        <input value={searchQuery} onChange={function(e){setSearchQuery(e.target.value);setSearchOpen(true);}}
+          onFocus={function(){setSearchOpen(true);}}
+          placeholder="🔍 検索…"
+          style={{width:isSearchOpen&&searchQuery?160:100,padding:"4px 24px 4px 8px",fontSize:11,
+            background:"#0a162888",border:"1px solid "+(searchQuery?"#e9b44c":"#ffffff22"),borderRadius:8,
+            color:"#e0e0e0",outline:"none",transition:"all 0.2s",backdropFilter:"blur(6px)",
+            fontFamily:"'Noto Sans JP',sans-serif"}}/>
+        {searchQuery&&<button onClick={function(){setSearchQuery("");setSearchOpen(false);}} style={{
+          position:"absolute",right:4,top:"50%",transform:"translateY(-50%)",
+          background:"none",border:"none",color:"#ffffff55",fontSize:10,cursor:"pointer",padding:2}}>✕</button>}
+        {isSearchOpen&&searchQuery.trim()&&<div style={{
+          position:"absolute",top:"100%",right:0,marginTop:4,
+          background:"rgba(10,22,40,0.97)",border:"1px solid #e9b44c44",borderRadius:10,
+          width:240,maxHeight:300,overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
+          backdropFilter:"blur(8px)",zIndex:60}}>
+          <div style={{padding:"6px 10px",fontSize:10,color:"#ffffff55",borderBottom:"1px solid #ffffff11"}}>
+            {searchResults.length>0?searchResults.length+"件ヒット":"見つかりません"}
+          </div>
+          {searchResults.map(function(item){
+            return <div key={item.id} onClick={function(){handleSearchJump(item.id);}}
+              style={{padding:"8px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,
+                borderBottom:"1px solid #ffffff08",transition:"background 0.15s"}}
+              onMouseEnter={function(e){e.currentTarget.style.background="#ffffff11";}}
+              onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>
+              <span style={{fontSize:16}}>{item.emoji||"·"}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#e0e0e0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>
+                {item.desc&&<div style={{fontSize:9,color:"#ffffff55",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.desc}</div>}
+              </div>
+            </div>;
+          })}
+        </div>}
+      </div>
       <span style={{background:"#e9b44c22",border:"1px solid #e9b44c88",color:"#e9b44c",padding:"3px 8px",borderRadius:10,fontWeight:"bold",letterSpacing:"0.05em"}}>β BETA</span>
       <a href="./manual.html" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#e9b44c";e.currentTarget.style.borderColor="#e9b44c";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>📘 マニュアル</a>
       <a href="./manual.html#feedback" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#e9b44c";e.currentTarget.style.borderColor="#e9b44c";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>💬 ご意見</a>
+      <a href="https://osakenpiro.github.io/banet-map/" target="_blank" rel="noreferrer" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#06d6a0";e.currentTarget.style.borderColor="#06d6a0";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>🌀 バネットマップ</a>
+    </div>
+    {/* ═══ VR共通検索 ═══ */}
+    <div style={{position:"absolute",top:8,left:10,zIndex:50}}>
+      <div style={{position:"relative"}}>
+        <input value={searchQuery} onChange={function(e){setSearchQuery(e.target.value);setSearchOpen(true);}}
+          onFocus={function(){if(searchQuery.trim())setSearchOpen(true);}}
+          placeholder="🔍 検索…"
+          style={{width:isSearchOpen&&searchQuery?200:120,padding:"5px 26px 5px 8px",fontSize:12,
+            background:"#0a162899",border:"1px solid "+(searchQuery?"#e9b44c":"#ffffff22"),borderRadius:10,
+            color:"#e0e0e0",outline:"none",transition:"all 0.25s",backdropFilter:"blur(6px)",
+            fontFamily:"'Noto Sans JP',sans-serif"}}/>
+        {searchQuery&&<button onClick={function(){setSearchQuery("");setSearchOpen(false);}} style={{
+          position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",
+          background:"none",border:"none",color:"#ffffff55",fontSize:11,cursor:"pointer",padding:2}}>✕</button>}
+        {isSearchOpen&&searchResults.length>0&&<div style={{
+          position:"absolute",top:"100%",left:0,marginTop:4,width:240,maxHeight:300,overflowY:"auto",
+          background:"rgba(10,22,40,0.97)",border:"1px solid #e9b44c55",borderRadius:10,
+          boxShadow:"0 6px 24px rgba(0,0,0,0.5)",backdropFilter:"blur(8px)",zIndex:60}}>
+          <div style={{padding:"6px 10px",fontSize:10,color:"#e9b44c",fontWeight:"bold",borderBottom:"1px solid #ffffff11"}}>
+            {searchResults.length}件{searchResults.length>=12?" (上位12件)":""}
+          </div>
+          {searchResults.map(function(item){
+            return <div key={item.id} onClick={function(){handleSearchJump(item.id);}}
+              style={{padding:"8px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,
+                fontSize:13,borderBottom:"1px solid #ffffff08",transition:"background 0.15s"}}
+              onMouseEnter={function(e){e.currentTarget.style.background="#ffffff11";}}
+              onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>
+              <span style={{fontSize:16}}>{item.emoji||"·"}</span>
+              <span style={{flex:1,color:"#e0e0e0"}}>{item.name}</span>
+              {item.gems&&item.gems[0]&&<span style={{fontSize:10,color:"#ffffff55"}}>{item.gems[0].value}</span>}
+            </div>;
+          })}
+        </div>}
+        {isSearchOpen&&searchQuery.trim()&&searchResults.length===0&&<div style={{
+          position:"absolute",top:"100%",left:0,marginTop:4,width:200,padding:"10px 12px",
+          background:"rgba(10,22,40,0.97)",border:"1px solid #ffffff22",borderRadius:10,
+          fontSize:12,color:"#ffffff55",textAlign:"center"}}>該当なし</div>}
+      </div>
     </div>
     {/* ═══ Dataset switcher — topmost tab row ═══ */}
     <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:6,paddingTop:2}}>
