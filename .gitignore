@@ -1,0 +1,5 @@
+node_modules/
+*.log
+.DS_Store
+.vite/
+# Do NOT ignore dist - we want it committed for GitHub Pages via docs/

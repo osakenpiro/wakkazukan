@@ -1,0 +1,46 @@
+name: 🐛 バグ報告
+description: 動作がおかしい・壊れている
+labels: [bug]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: 一言で
+      placeholder: 例：ピン留めしたあとプレパラート切替でクラッシュ
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: 何をしたら起きた？
+      placeholder: |
+        1. ポケモンずかんを開く
+        2. くさ→フシギダネをピン留め
+        3. すみかプレパラートへ切替
+        4. 画面が真っ白になる
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待した動き
+  - type: dropdown
+    id: browser
+    attributes:
+      label: 環境
+      options:
+        - Chrome (desktop)
+        - Safari (desktop)
+        - Firefox (desktop)
+        - Chrome (Android)
+        - Safari (iOS)
+        - その他
+  - type: dropdown
+    id: dataset
+    attributes:
+      label: データセット
+      options:
+        - ポケモン
+        - いきもの
+        - 両方

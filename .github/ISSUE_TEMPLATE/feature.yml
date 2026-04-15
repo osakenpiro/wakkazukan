@@ -1,0 +1,28 @@
+name: 💡 機能要望・アイデア
+description: こんな機能あったら・こういうデータ入れたい
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: やりたいこと
+      description: どんな体験・機能がほしい？
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: なぜ？
+      description: それがあると何が嬉しい？
+  - type: dropdown
+    id: area
+    attributes:
+      label: どのあたり？
+      options:
+        - ナビゲーション（兄弟/ズーム/階層）
+        - プレパラート・分類軸
+        - ピン留め比較
+        - CSV import/export
+        - 見た目・レイアウト
+        - 新しいデータセット
+        - その他

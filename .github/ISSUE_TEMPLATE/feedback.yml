@@ -1,0 +1,11 @@
+name: 💬 かんそう・なんでも
+description: 感想・雑談・言語化しきれない違和感
+labels: [feedback]
+body:
+  - type: textarea
+    id: thought
+    attributes:
+      label: なんでもどうぞ
+      description: 一言でもOK。「なんか変」レベルでもOK。
+    validations:
+      required: true
