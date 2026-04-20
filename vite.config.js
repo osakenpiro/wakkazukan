@@ -1,12 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// GitHub Pages: osakenpiro.github.io/wakkazukan/
+// GitHub Pages: osakenpiro.github.io/wakkazukan/ (docs/)
 export default defineConfig({
   plugins: [react()],
   base: '/wakkazukan/',
   build: {
-    outDir: 'dist',
+    outDir: 'docs',
+    emptyOutDir: true,
     assetsDir: 'assets',
     minify: 'esbuild',
     sourcemap: false,
