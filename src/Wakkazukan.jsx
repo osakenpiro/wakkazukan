@@ -244,14 +244,41 @@ function buildAllData(pokeList){
   var TREE_SIZE = groupBy("_s", SZ_ORDER,   SZ_NAME, SZ_DESC, SC, SE, "size", "おおきさ図鑑", "📏", "#f77f00", "体の大きさで並べた、見た目重視の見方");
 
   function buildTrainerTree(){
-    var used = {};
-    var children = TRAINER_ORDER.map(function(tname){
-      var t = TRAINERS[tname];
-      var kids = t.ids.filter(function(id){return !!P[id];}).map(function(id){used[id]=true;return P[id];});
-      return {id:"tr_"+tname,name:tname,emoji:t.emoji,color:t.color,desc:t.desc,gems:[{name:tname,emoji:t.emoji}],children:kids};
+    // v0.2: pokeList[7] の trainer_override を反映
+    var effectiveTrainer = {};
+    // defaults from TRAINERS
+    TRAINER_ORDER.forEach(function(tn){
+      TRAINERS[tn].ids.forEach(function(id){
+        if(!effectiveTrainer[id]) effectiveTrainer[id] = tn;
+      });
     });
-    var wild = pokeList.filter(function(p){return !used[p[0]];}).map(function(p){return P[p[0]];});
-    if(wild.length) children.push({id:"tr_wild",name:"やせい",emoji:"🌳",color:"#689f38",desc:"トレーナーに仕えないポケモンたち",gems:[{name:"やせい",emoji:"🌳"}],children:wild});
+    // overrides from pokeList[7]
+    pokeList.forEach(function(p){
+      if(p[7]) effectiveTrainer[p[0]] = p[7];
+    });
+    // group
+    var groups = {};
+    pokeList.forEach(function(p){
+      var tn = effectiveTrainer[p[0]] || "やせい";
+      if(!groups[tn]) groups[tn] = [];
+      groups[tn].push(P[p[0]]);
+    });
+    // build children: 既知順 → 未知 → やせい
+    var children = [];
+    TRAINER_ORDER.forEach(function(tname){
+      if(groups[tname] && groups[tname].length){
+        var meta = TRAINERS[tname];
+        children.push({id:"tr_"+tname,name:tname,emoji:meta.emoji,color:meta.color,desc:meta.desc,gems:[{name:tname,emoji:meta.emoji}],children:groups[tname]});
+        delete groups[tname];
+      }
+    });
+    Object.keys(groups).forEach(function(tname){
+      if(tname==="やせい") return;
+      children.push({id:"tr_"+tname,name:tname,emoji:"🎓",color:"#888",desc:tname+"（カスタム）",gems:[{name:tname,emoji:"🎓"}],children:groups[tname]});
+    });
+    if(groups["やせい"] && groups["やせい"].length){
+      children.push({id:"tr_wild",name:"やせい",emoji:"🌳",color:"#689f38",desc:"トレーナーに仕えないポケモンたち",gems:[{name:"やせい",emoji:"🌳"}],children:groups["やせい"]});
+    }
     return {id:"trroot",name:"トレーナー図鑑",emoji:"🎓",color:"#7b1fa2",desc:"カントー地方のジムリーダー・四天王・ライバルが実際に使うポケモンたち",gems:[{name:"トレーナー図鑑",emoji:"🎓"}],children:children};
   }
   var TREE_TRAINER = buildTrainerTree();
@@ -449,76 +476,160 @@ function parseGemsExtended(s){
     return {name:key+":"+val, emoji:"🏷️", type:"dict", key:key, value:val};
   }).filter(Boolean);
 }
-// Export a prep's leaves to CSV. prepId determines which field → category column.
-function exportPrepCSV(prepId, pokeList, P, PREPARATES){
-  var header = ["id","category","name","emoji","desc","gems_extended"];
-  var lines = [header.join(",")];
-  // For trainer: gather via TRAINERS reverse map
-  if(prepId==="trainer"){
-    var rev = {};
-    Object.keys(TRAINERS).forEach(function(tn){TRAINERS[tn].ids.forEach(function(id){if(!rev[id])rev[id]=tn;});});
-    pokeList.forEach(function(p){
-      var id=p[0], rec=P[id]; if(!rec) return;
-      var cat = rev[id] || "やせい";
-      lines.push([csvEscape(id),csvEscape(cat),csvEscape(rec.name),csvEscape(rec.emoji),csvEscape(rec.desc),csvEscape(serializeGemsExtended(rec.gems))].join(","));
+// v0.2: 既知列一覧（datasetごと）
+var KNOWN_COLS_POKEMON = ["id","dataset","name","emoji","type","habitat","size","trainer","desc","gems_extended"];
+var KNOWN_COLS_IKIMONO = ["id","dataset","name","emoji","color","maki","season","pos","latin","subtitle","desc","gems_extended"];
+
+// 既知列以外の preserved 列名をユニークに集める
+function collectPreservedCols(preserved, knownCols){
+  var known = {};knownCols.forEach(function(c){known[c]=true;});
+  var extra = {};
+  Object.keys(preserved||{}).forEach(function(id){
+    Object.keys(preserved[id]||{}).forEach(function(col){
+      if(!known[col]) extra[col]=true;
     });
-  } else {
-    var catIdx = prepId==="type"?2 : prepId==="hab"?3 : prepId==="size"?4 : 2;
-    pokeList.forEach(function(p){
-      var id=p[0], rec=P[id]; if(!rec) return;
-      var cat = p[catIdx];
-      var name = p[1];
-      var emoji = p[5]||rec.emoji;
-      lines.push([csvEscape(id),csvEscape(cat),csvEscape(name),csvEscape(emoji),csvEscape(rec.desc),csvEscape(serializeGemsExtended(rec.gems))].join(","));
-    });
-  }
-  return "\uFEFF"+lines.join("\r\n")+"\r\n"; // BOM + CRLF
+  });
+  return Object.keys(extra).sort();
 }
-// Import a CSV for a given prep. Returns a new pokeList (for non-trainer preps) or throws for trainer.
-function importPrepCSV(text, prepId, currentPokeList){
+
+/* v0.2 Export: 全軸展開 + preserved columns復元 */
+function exportAllCSV(datasetId, pokeList, P, preservedCols){
+  var preserved = preservedCols || {};
+  if(datasetId==="pokemon"){
+    var extraCols = collectPreservedCols(preserved, KNOWN_COLS_POKEMON);
+    var header = KNOWN_COLS_POKEMON.concat(extraCols);
+    var lines = [header.map(csvEscape).join(",")];
+    var trainerRev = {};
+    Object.keys(TRAINERS).forEach(function(tn){TRAINERS[tn].ids.forEach(function(id){if(!trainerRev[id])trainerRev[id]=tn;});});
+    pokeList.forEach(function(p){
+      var id=p[0], rec=P[id]; if(!rec) return;
+      var trainerOverride = p[7];
+      var trainer = trainerOverride || trainerRev[id] || "やせい";
+      var pres = preserved[id] || {};
+      var row = {
+        id: id, dataset: "pokemon", name: p[1]||rec.name||"",
+        emoji: p[5]||rec.emoji||"",
+        type: p[2]||"", habitat: p[3]||"", size: p[4]||"",
+        trainer: trainer,
+        desc: rec.desc||"",
+        gems_extended: serializeGemsExtended(rec.gems)
+      };
+      var cells = KNOWN_COLS_POKEMON.map(function(c){return csvEscape(row[c]);});
+      extraCols.forEach(function(c){cells.push(csvEscape(pres[c]||""));});
+      lines.push(cells.join(","));
+    });
+    return "\uFEFF"+lines.join("\r\n")+"\r\n";
+  } else if(datasetId==="ikimono"){
+    var extraCols2 = collectPreservedCols(preserved, KNOWN_COLS_IKIMONO);
+    var header2 = KNOWN_COLS_IKIMONO.concat(extraCols2);
+    var lines2 = [header2.map(csvEscape).join(",")];
+    pokeList.forEach(function(r){
+      var id=r[0], rec=P[id]; if(!rec) return;
+      var pres = preserved[id] || {};
+      var row = {
+        id: id, dataset: "ikimono", name: r[1]||rec.name||"",
+        emoji: r[2]||rec.emoji||"",
+        color: r[3]||rec.color||"",
+        maki: r[4]||"", season: r[5]||"", pos: r[6]||"",
+        latin: r[7]||"", subtitle: r[8]||"",
+        desc: r[9]||rec.desc||"",
+        gems_extended: serializeGemsExtended(rec.gems)
+      };
+      var cells = KNOWN_COLS_IKIMONO.map(function(c){return csvEscape(row[c]);});
+      extraCols2.forEach(function(c){cells.push(csvEscape(pres[c]||""));});
+      lines2.push(cells.join(","));
+    });
+    return "\uFEFF"+lines2.join("\r\n")+"\r\n";
+  }
+  throw new Error("未知のdataset: "+datasetId);
+}
+
+/* v0.2 Import: dataset必須チェック + preserved保持 */
+function importAllCSV(text, expectedDatasetId, currentList, currentPreserved){
   var rows = csvParse(text);
   if(rows.length<2) throw new Error("CSVが空です");
   var header = rows[0].map(function(h){return h.trim();});
+  var datasetCol = header.indexOf("dataset");
+  if(datasetCol<0) throw new Error("『dataset』列が必要です (v0.2形式のCSVをご利用ください)");
   var idCol = header.indexOf("id");
-  var catCol = header.indexOf("category");
-  var nameCol = header.indexOf("name");
-  var emojiCol = header.indexOf("emoji");
-  var gemsCol = header.indexOf("gems_extended");
-  if(idCol<0) throw new Error("id列が必要です");
-  if(prepId==="trainer") throw new Error("トレーナー図鑑のインポートはv1では未対応。TRAINERS定義を直接編集してください");
-  var catIdx = prepId==="type"?2 : prepId==="hab"?3 : prepId==="size"?4 : -1;
-  if(catIdx<0) throw new Error("未知のプレパラート: "+prepId);
-  // Build map id → row
+  if(idCol<0) throw new Error("『id』列が必要です");
+
+  var firstDataRow = rows[1];
+  var detectedDataset = firstDataRow[datasetCol]?firstDataRow[datasetCol].trim():"";
+  if(detectedDataset!==expectedDatasetId){
+    throw new Error("dataset不一致: CSVは『"+detectedDataset+"』、現在は『"+expectedDatasetId+"』");
+  }
+
+  var knownArr = detectedDataset==="pokemon"?KNOWN_COLS_POKEMON:KNOWN_COLS_IKIMONO;
+  var known = {};knownArr.forEach(function(c){known[c]=true;});
+  var colIdx = {};header.forEach(function(h,i){colIdx[h]=i;});
+  var extraColNames = header.filter(function(h){return !known[h];});
+
   var updates = {};
   var extraGemsMap = {};
+  var newPreserved = {};
+  // 既存 preserved をコピー
+  Object.keys(currentPreserved||{}).forEach(function(id){newPreserved[id] = Object.assign({},currentPreserved[id]);});
+
   for(var r=1;r<rows.length;r++){
     var row = rows[r];
-    if(!row[idCol]) continue;
-    var id = row[idCol].trim();
-    updates[id] = {
-      category: catCol>=0?row[catCol]:null,
-      name:     nameCol>=0?row[nameCol]:null,
-      emoji:    emojiCol>=0?row[emojiCol]:null,
-    };
-    if(gemsCol>=0 && row[gemsCol]){
-      extraGemsMap[id] = parseGemsExtended(row[gemsCol]);
+    if(!row[colIdx.id]) continue;
+    var id = row[colIdx.id].trim();
+    var u = {};
+    knownArr.forEach(function(c){
+      if(c==="id"||c==="dataset"||c==="gems_extended") return;
+      if(colIdx[c]!==undefined) u[c] = row[colIdx[c]];
+    });
+    updates[id] = u;
+    if(colIdx.gems_extended!==undefined && row[colIdx.gems_extended]){
+      extraGemsMap[id] = parseGemsExtended(row[colIdx.gems_extended]);
+    }
+    if(extraColNames.length){
+      var pres = Object.assign({},newPreserved[id]||{});
+      extraColNames.forEach(function(c){
+        if(row[colIdx[c]]!==undefined) pres[c] = row[colIdx[c]];
+      });
+      newPreserved[id] = pres;
     }
   }
-  // Produce new pokeList: clone and patch
-  var newList = currentPokeList.map(function(p){
-    var id = p[0];
-    var copy = p.slice();
-    var u = updates[id];
-    if(u){
-      if(u.name) copy[1] = u.name;
-      if(u.category) copy[catIdx] = u.category;
-      if(u.emoji) copy[5] = u.emoji;
-    }
-    if(extraGemsMap[id]) copy[6] = extraGemsMap[id];
-    else if(copy[6]===undefined) copy[6] = undefined;
-    return copy;
-  });
-  return newList;
+
+  if(detectedDataset==="pokemon"){
+    var newList = currentList.map(function(p){
+      var id = p[0]; var copy = p.slice();
+      while(copy.length<8) copy.push(undefined);
+      var u = updates[id];
+      if(u){
+        if(u.name) copy[1] = u.name;
+        if(u.type) copy[2] = u.type;
+        if(u.habitat) copy[3] = u.habitat;
+        if(u.size) copy[4] = u.size;
+        if(u.emoji) copy[5] = u.emoji;
+        if(u.trainer) copy[7] = u.trainer;
+      }
+      if(extraGemsMap[id]) copy[6] = extraGemsMap[id];
+      return copy;
+    });
+    return {list:newList, preserved:newPreserved};
+  } else {
+    // ikimono: Raw[0-9] = id,name,emoji,color,maki,season,pos,latin,subtitle,desc
+    var newList2 = currentList.map(function(rec){
+      var id = rec[0]; var copy = rec.slice();
+      var u = updates[id];
+      if(u){
+        if(u.name) copy[1] = u.name;
+        if(u.emoji) copy[2] = u.emoji;
+        if(u.color) copy[3] = u.color;
+        if(u.maki) copy[4] = u.maki;
+        if(u.season) copy[5] = u.season;
+        if(u.pos) copy[6] = u.pos;
+        if(u.latin) copy[7] = u.latin;
+        if(u.subtitle) copy[8] = u.subtitle;
+        if(u.desc) copy[9] = u.desc;
+      }
+      return copy;
+    });
+    return {list:newList2, preserved:newPreserved};
+  }
 }
 
 
@@ -1020,22 +1131,62 @@ function Panel(props){
 }
 
 /* ═══ Main ═══ */
-export default function WakkazukanV46(){
+// v0.2: localStorage keys
+var LS_KEYS = {
+  allData:        "wakkazukan.v48.allData",
+  preservedCols:  "wakkazukan.v48.preservedCols",
+  ui:             "wakkazukan.v48.ui",
+};
+function lsGet(key,fallback){
+  try{ var s=localStorage.getItem(key); if(!s) return fallback; return JSON.parse(s); }
+  catch(e){ return fallback; }
+}
+function lsSet(key,val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){}
+}
+
+export default function WakkazukanV48(){
   // ═ Dataset layer ═
-  var datasetIdState = useState("pokemon"); var datasetId = datasetIdState[0]; var setDatasetId = datasetIdState[1];
-  // Per-dataset data (preserves edits when switching)
+  var datasetIdState = useState(function(){
+    var ui = lsGet(LS_KEYS.ui,{});
+    return ui.datasetId || "pokemon";
+  });
+  var datasetId = datasetIdState[0]; var setDatasetId = datasetIdState[1];
+  // Per-dataset data (localStorage hydrated)
   var allDataState = useState(function(){
-    var o = {};
-    DATASET_ORDER.forEach(function(did){ o[did] = DATASETS[did].defaultData; });
-    return o;
+    var stored = lsGet(LS_KEYS.allData,null);
+    if(stored && typeof stored==="object"){
+      var o = {};
+      DATASET_ORDER.forEach(function(did){
+        o[did] = Array.isArray(stored[did]) ? stored[did] : DATASETS[did].defaultData;
+      });
+      return o;
+    }
+    var d = {};
+    DATASET_ORDER.forEach(function(did){ d[did] = DATASETS[did].defaultData; });
+    return d;
   });
   var allData = allDataState[0]; var setAllData = allDataState[1];
+  // v0.2: preserved columns per dataset per id
+  var preservedState = useState(function(){
+    var stored = lsGet(LS_KEYS.preservedCols,null);
+    if(stored && typeof stored==="object"){
+      var o = {};
+      DATASET_ORDER.forEach(function(did){ o[did] = stored[did] || {}; });
+      return o;
+    }
+    var d = {};
+    DATASET_ORDER.forEach(function(did){ d[did] = {}; });
+    return d;
+  });
+  var preservedCols = preservedState[0]; var setPreservedCols = preservedState[1];
+
   var currentDatasetConfig = DATASETS[datasetId];
   var currentList = allData[datasetId];
+  var currentPreserved = preservedCols[datasetId] || {};
   var data = useMemo(function(){return currentDatasetConfig.build(currentList);},[datasetId, currentList]);
   var PREPARATES = data.PREPARATES;
   var P = data.P;
-  // Helper to update just the current dataset's list
   var setPokeList = useCallback(function(newList){
     setAllData(function(prev){
       var next = Object.assign({},prev);
@@ -1043,14 +1194,35 @@ export default function WakkazukanV46(){
       return next;
     });
   },[datasetId]);
+  var setPreservedForCurrent = useCallback(function(newPres){
+    setPreservedCols(function(prev){
+      var next = Object.assign({},prev);
+      next[datasetId] = newPres;
+      return next;
+    });
+  },[datasetId]);
+
+  // ═ localStorage sync ═
+  useEffect(function(){ lsSet(LS_KEYS.allData, allData); }, [allData]);
+  useEffect(function(){ lsSet(LS_KEYS.preservedCols, preservedCols); }, [preservedCols]);
 
   // Import/export UI state
   var ioMsgState=useState(null),ioMsg=ioMsgState[0],setIoMsg=ioMsgState[1];
   var fileInputRef=useRef(null);
 
-  var prepState=useState(0),prepIdx=prepState[0],setPrepIdx=prepState[1];var currentPrep=PREPARATES[prepIdx];var TREE=currentPrep.tree;
-  var focusState=useState(currentDatasetConfig.initialFocus),focusId=focusState[0],setFocusId=focusState[1];
+  var prepState=useState(function(){var ui=lsGet(LS_KEYS.ui,{});var i=ui.prepIdx;return typeof i==="number"?i:0;}),prepIdx=prepState[0],setPrepIdx=prepState[1];var currentPrep=PREPARATES[prepIdx]||PREPARATES[0];var TREE=currentPrep.tree;
+  var focusState=useState(function(){var ui=lsGet(LS_KEYS.ui,{});return ui.focusId||currentDatasetConfig.initialFocus;}),focusId=focusState[0],setFocusId=focusState[1];
   var pinnedState=useState(null),pinnedId=pinnedState[0],setPinnedId=pinnedState[1];var isCompare=pinnedId!==null;
+
+  // UI state → localStorage
+  useEffect(function(){
+    lsSet(LS_KEYS.ui, {datasetId:datasetId, prepIdx:prepIdx, focusId:focusId});
+  },[datasetId, prepIdx, focusId]);
+
+  // datasetId 変更時に prepIdx を範囲内に clamp
+  useEffect(function(){
+    if(prepIdx >= PREPARATES.length) setPrepIdx(0);
+  },[datasetId, PREPARATES.length]);
   var navDirState=useState(""),navDir=navDirState[0],setNavDir=navDirState[1];
   var animKeyState=useState(0),animKey=animKeyState[0],setAnimKey=animKeyState[1];
   var pinNavDirState=useState(""),pinNavDir=pinNavDirState[0],setPinNavDir=pinNavDirState[1];
@@ -1105,36 +1277,25 @@ export default function WakkazukanV46(){
     setNavDir("down"); setAnimKey(function(k){return k+1;});
   },[datasetId]);
 
-  // ═══ CSV handlers ═══
+  // ═══ CSV handlers (v0.2) ═══
   var handleExport = useCallback(function(){
     try{
-      // exportPrepCSV only supports pokemon for now (type/hab/size). ikimono has different axis naming.
-      if(datasetId!=="pokemon"){
-        setIoMsg({kind:"err",text:"CSV書き出しは現在ポケモンずかんのみ対応（いきものは次のバージョンで対応予定）"});
-        setTimeout(function(){setIoMsg(null);},3000);
-        return;
-      }
-      var csv = exportPrepCSV(currentPrep.id, currentList, P, PREPARATES);
+      var csv = exportAllCSV(datasetId, currentList, P, currentPreserved);
       var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
       var url = URL.createObjectURL(blob);
       var a = document.createElement("a");
       a.href = url;
-      a.download = "wakkazukan_"+datasetId+"_"+currentPrep.id+"_"+new Date().toISOString().slice(0,10)+".csv";
+      a.download = "vr_"+datasetId+"_wakka_"+new Date().toISOString().slice(0,10)+".csv";
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      setIoMsg({kind:"ok",text:"書き出し完了: "+currentPrep.name+" ("+currentList.length+"件)"});
+      setIoMsg({kind:"ok",text:"書き出し完了: "+currentDatasetConfig.name+" ("+currentList.length+"件)"});
       setTimeout(function(){setIoMsg(null);},2500);
     }catch(e){setIoMsg({kind:"err",text:"書き出し失敗: "+e.message});}
-  },[datasetId,currentPrep,currentList,P,PREPARATES]);
+  },[datasetId,currentList,P,currentPreserved,currentDatasetConfig]);
 
   var handleImportClick = useCallback(function(){
-    if(datasetId!=="pokemon"){
-      setIoMsg({kind:"err",text:"CSV取り込みは現在ポケモンずかんのみ対応"});
-      setTimeout(function(){setIoMsg(null);},3000);
-      return;
-    }
     if(fileInputRef.current) fileInputRef.current.click();
-  },[datasetId]);
+  },[]);
 
   var handleFileChange = useCallback(function(e){
     var file = e.target.files && e.target.files[0];
@@ -1143,9 +1304,10 @@ export default function WakkazukanV46(){
     reader.onload = function(ev){
       try{
         var text = ev.target.result;
-        var newList = importPrepCSV(text, currentPrep.id, currentList);
-        setPokeList(newList);
-        setIoMsg({kind:"ok",text:"取り込み完了: "+currentPrep.name+" ("+newList.length+"件)"});
+        var result = importAllCSV(text, datasetId, currentList, currentPreserved);
+        setPokeList(result.list);
+        setPreservedForCurrent(result.preserved);
+        setIoMsg({kind:"ok",text:"取り込み完了: "+currentDatasetConfig.name+" ("+result.list.length+"件)"});
         setTimeout(function(){setIoMsg(null);},2500);
       }catch(err){
         setIoMsg({kind:"err",text:"取り込み失敗: "+err.message});
@@ -1153,15 +1315,16 @@ export default function WakkazukanV46(){
       if(fileInputRef.current) fileInputRef.current.value="";
     };
     reader.readAsText(file, "utf-8");
-  },[currentPrep,currentList,setPokeList]);
+  },[datasetId,currentList,currentPreserved,setPokeList,setPreservedForCurrent,currentDatasetConfig]);
 
   var handleReset = useCallback(function(){
     var defaultList = currentDatasetConfig.defaultData;
     if(currentList===defaultList) return;
     setPokeList(defaultList);
+    setPreservedForCurrent({});
     setIoMsg({kind:"ok",text:"初期データに戻しました"});
     setTimeout(function(){setIoMsg(null);},2000);
-  },[currentList,currentDatasetConfig,setPokeList]);
+  },[currentList,currentDatasetConfig,setPokeList,setPreservedForCurrent]);
 
   var fn=resolveInTree(TREE,focusId);var resolvedFocusId=fn.id;
   var pinNode=pinnedId?resolveInTree(TREE,pinnedId):null;
