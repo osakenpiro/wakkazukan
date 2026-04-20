@@ -643,7 +643,29 @@ function findRecordParent(tree,rid){if(tree.children)for(var i=0;i<tree.children
 function resolveInTree(tree,id){var n=findNode(tree,id);if(n)return n;var rp=findRecordParent(tree,id);return rp||tree;}
 
 /* ═══ Packing ═══ */
-function packInCircle(n,pR,resTop){if(n===0)return{r:0,positions:[]};var usR=pR-4,gap=3,lo=2,hi=usR*0.45,bR=lo,bP=[];for(var it=0;it<30;it++){var mid=(lo+hi)/2,oR=usR-mid-2,offY=resTop*0.3,ok=true,pos=[];for(var i=0;i<n;i++){var a=(2*Math.PI*i)/n-Math.PI/2,x=oR*Math.cos(a),y=offY+oR*Math.sin(a)*0.85;if(Math.sqrt(x*x+y*y)+mid>usR){ok=false;break;}for(var j=0;j<pos.length;j++){if(Math.sqrt(Math.pow(pos[j].x-x,2)+Math.pow(pos[j].y-y,2))<mid*2+gap){ok=false;break;}}if(!ok)break;pos.push({x:x,y:y});}if(ok){bR=mid;bP=pos;lo=mid;}else hi=mid;}return{r:bR,positions:bP};}
+/* Sunflower (Fibonacci) packing: n個のジェムを黄金角137.5°で螺旋配置。
+   決定的・スケーラブル・重複なし。 n=5でも n=50でも綺麗に収束する。 */
+function packInCircle(n, pR, resTop) {
+  if (n === 0) return { r: 0, positions: [] }
+  var usR = Math.max(pR - 4, 4)
+  var yOff = resTop * 0.18  // ラベル帯の下に押し込む（小さめ）
+  // ジェム半径: 密度 1/√n で減衰、上限は親の35%、下限は3px
+  var gemR = Math.max(3, Math.min(usR * 0.35, (usR / Math.sqrt(Math.max(n, 1))) * 0.82))
+  // 利用可能半径: gemR分とyOffバッファを引く
+  var effR = Math.max(0, usR - gemR - Math.abs(yOff) - 2)
+  var goldenAngle = Math.PI * (3 - Math.sqrt(5))
+  var c = n > 1 ? effR / Math.sqrt(n - 1) : 0
+  var positions = []
+  for (var i = 0; i < n; i++) {
+    var rho = c * Math.sqrt(i)
+    var theta = i * goldenAngle - Math.PI / 2
+    positions.push({
+      x: rho * Math.cos(theta),
+      y: yOff + rho * Math.sin(theta),
+    })
+  }
+  return { r: gemR, positions: positions }
+}
 function weightedPack(children,aW,aH,padT){if(!children.length)return[];var uH=aH-padT,gap=14,ws=[],tW=0;for(var i=0;i<children.length;i++){var w=countDesc(children[i]);ws.push(w);tW+=w;}
   // Fill fraction: fewer children → larger fill (breathing room shrinks)
   var n=children.length;
@@ -730,13 +752,85 @@ function StackedGems(props){
 }
 
 /* ═══ BDot ═══ */
-function BDot(props){var gx=props.cx,gy=props.cy,r=props.r,color=props.color,emoji=props.emoji,gems=props.gems,fontSize=props.fontSize,onClick=props.onClick,highlight=props.highlight;var hov=useState(false),h=hov[0],setH=hov[1];var label=gems&&gems[0]?gems[0].name:"";var tipW=Math.max(label.length*7+18,44);return <g onMouseEnter={function(){setH(true);}} onMouseLeave={function(){setH(false);}} style={{cursor:onClick?"pointer":"default"}} onClick={onClick?function(e){e.stopPropagation();onClick();}:undefined}><circle cx={gx} cy={gy} r={r} fill={color+(highlight?"55":"20")} stroke={highlight?"#ffd700":color+(h?"aa":"44")} strokeWidth={highlight?2.5:(h?1.5:0.8)} style={{mixBlendMode:"screen"}}/>{highlight&&<circle cx={gx} cy={gy} r={r+3} fill="none" stroke="#ffd70044" strokeWidth={1.5} style={{mixBlendMode:"screen"}}/>}<text x={gx} y={gy+1} textAnchor="middle" dominantBaseline="central" fontSize={fontSize} style={{pointerEvents:"none"}}>{emoji}</text>{h&&label?<g><rect x={gx-tipW/2} y={gy-r-20} width={tipW} height={18} rx={3} ry={3} fill="#1a1a2eee" stroke={color+"66"} strokeWidth={0.8}/><text x={gx} y={gy-r-11} textAnchor="middle" dominantBaseline="central" fill={color} fontSize={8} fontWeight={600} fontFamily="'Noto Sans JP',sans-serif" style={{pointerEvents:"none"}}>{emoji} {label}</text></g>:null}</g>;}
+function BDot(props){var gx=props.cx,gy=props.cy,r=props.r,color=props.color,emoji=props.emoji,gems=props.gems,fontSize=props.fontSize,onClick=props.onClick,highlight=props.highlight;var hov=useState(false),h=hov[0],setH=hov[1];var label=gems&&gems[0]?gems[0].name:"";var tipW=Math.max(label.length*7+18,44);return <g onMouseEnter={function(){setH(true);}} onMouseLeave={function(){setH(false);}} style={{cursor:onClick?"pointer":"default"}} onClick={onClick?function(e){e.stopPropagation();onClick();}:undefined}><circle cx={gx} cy={gy} r={h?r*1.08:r} fill={color+(highlight?"55":"20")} stroke={highlight?"#ffd700":color+(h?"aa":"44")} strokeWidth={highlight?2.5:(h?1.5:0.8)} style={{mixBlendMode:"screen",transition:"r 0.18s ease-out, stroke-width 0.18s ease-out"}}/>{highlight&&<circle cx={gx} cy={gy} r={r+3} fill="none" stroke="#ffd70044" strokeWidth={1.5} style={{mixBlendMode:"screen"}}/>}<text x={gx} y={gy+1} textAnchor="middle" dominantBaseline="central" fontSize={fontSize} style={{pointerEvents:"none"}}>{emoji}</text>{h&&label?<g><rect x={gx-tipW/2} y={gy-r-20} width={tipW} height={18} rx={3} ry={3} fill="#1a1a2eee" stroke={color+"66"} strokeWidth={0.8}/><text x={gx} y={gy-r-11} textAnchor="middle" dominantBaseline="central" fill={color} fontSize={8} fontWeight={600} fontFamily="'Noto Sans JP',sans-serif" style={{pointerEvents:"none"}}>{emoji} {label}</text></g>:null}</g>;}
 
-/* ═══ BouncyGC ═══ */
-function BouncyGC(props){var gcs=props.items,pcx=props.cx,pcy=props.cy,pR=props.parentR,pCol=props.color,sharedIds=props.sharedIds;var n=gcs.length,resTop=pR*0.25;var pk=useMemo(function(){return packInCircle(n,pR,resTop);},[n,pR]);var gcR=pk.r,bound=pR-gcR-3;var stRef=useRef(null),tickState=useState(0),setTick=tickState[1];if(!stRef.current||stRef.current.length!==n)stRef.current=pk.positions.map(function(p){var a=Math.random()*Math.PI*2;return{x:p.x,y:p.y,vx:Math.cos(a)*0.15,vy:Math.sin(a)*0.15};});var frRef=useRef(null);useEffect(function(){if(n===0||gcR<3)return;var run=true,fc=0;function step(){if(!run)return;var st=stRef.current;for(var i=0;i<st.length;i++){var o=st[i],x=o.x+o.vx,y=o.y+o.vy,vx=o.vx,vy=o.vy;var na=Math.random()*Math.PI*2;vx+=Math.cos(na)*0.008;vy+=Math.sin(na)*0.008;vx*=0.998;vy*=0.998;var spd=Math.sqrt(vx*vx+vy*vy);if(spd>0.4){vx=vx/spd*0.4;vy=vy/spd*0.4;}if(spd<0.06){var ba=Math.random()*Math.PI*2;vx=Math.cos(ba)*0.08;vy=Math.sin(ba)*0.08;}var dist=Math.sqrt(x*x+y*y);if(dist>bound){var nx=x/dist,ny=y/dist;x=nx*bound*0.97;y=ny*bound*0.97;var dot=vx*nx+vy*ny;vx-=2*dot*nx;vy-=2*dot*ny;vx*=0.8;vy*=0.8;}st[i]={x:x,y:y,vx:vx,vy:vy};}for(var i2=0;i2<st.length;i2++)for(var j=i2+1;j<st.length;j++){var dx=st[j].x-st[i2].x,dy=st[j].y-st[i2].y,d=Math.sqrt(dx*dx+dy*dy)||0.1,minD=gcR*2+2;if(d<minD){var ol=(minD-d)/2,nnx=dx/d,nny=dy/d;st[i2].x-=nnx*ol;st[i2].y-=nny*ol;st[j].x+=nnx*ol;st[j].y+=nny*ol;var rv=(st[i2].vx-st[j].vx)*nnx+(st[i2].vy-st[j].vy)*nny;if(rv>0){st[i2].vx-=rv*nnx*0.8;st[i2].vy-=rv*nny*0.8;st[j].vx+=rv*nnx*0.8;st[j].vy+=rv*nny*0.8;}}}fc++;if(fc%2===0)setTick(function(t){return t+1;});frRef.current=requestAnimationFrame(step);}frRef.current=requestAnimationFrame(step);return function(){run=false;cancelAnimationFrame(frRef.current);};},[n,gcR,pR,bound]);var gcFs=Math.max(9,Math.min(16,gcR*0.7)),st=stRef.current||[];return <g>{gcs.map(function(gc,i){var p=st[i];if(!p)return null;var c=gc.color||pCol,isS=sharedIds&&sharedIds.indexOf(gc.id)>=0;return <circle key={gc.id+"-a"} cx={pcx+p.x} cy={pcy+p.y} r={gcR} fill={c+(isS?"44":"20")} stroke={isS?"#ffd70066":"none"} strokeWidth={isS?1.5:0} style={{mixBlendMode:"screen"}}/>;})}{gcs.map(function(gc,i){var p=st[i];if(!p)return null;var isS=sharedIds&&sharedIds.indexOf(gc.id)>=0;return <BDot key={gc.id} cx={pcx+p.x} cy={pcy+p.y} r={gcR} color={gc.color||pCol} emoji={gc.emoji} gems={gc.gems} fontSize={gcFs} highlight={isS}/>;})}</g>;}
+/* ═══ BouncyGC (静的化: packInCircleで決定論的配置) ═══ */
+function BouncyGC(props) {
+  var gcs = props.items
+  var pcx = props.cx, pcy = props.cy
+  var pR = props.parentR, pCol = props.color
+  var sharedIds = props.sharedIds
+  var n = gcs.length
+  var resTop = pR * 0.25
+  var pk = useMemo(function() { return packInCircle(n, pR, resTop) }, [n, pR])
+  var gcR = pk.r
+  var positions = pk.positions
+  var gcFs = Math.max(9, Math.min(16, gcR * 0.7))
+  if (n === 0 || gcR < 3) return null
+  return <g>
+    {gcs.map(function(gc, i) {
+      var p = positions[i]; if (!p) return null
+      var c = gc.color || pCol
+      var isS = sharedIds && sharedIds.indexOf(gc.id) >= 0
+      return <circle key={gc.id+"-a"} cx={pcx+p.x} cy={pcy+p.y} r={gcR}
+        fill={c+(isS?"44":"20")}
+        stroke={isS?"#ffd70066":"none"}
+        strokeWidth={isS?1.5:0}
+        style={{mixBlendMode:"screen"}}/>
+    })}
+    {gcs.map(function(gc, i) {
+      var p = positions[i]; if (!p) return null
+      var isS = sharedIds && sharedIds.indexOf(gc.id) >= 0
+      return <BDot key={gc.id} cx={pcx+p.x} cy={pcy+p.y} r={gcR}
+        color={gc.color||pCol} emoji={gc.emoji} gems={gc.gems}
+        fontSize={gcFs} highlight={isS}/>
+    })}
+  </g>
+}
 
-/* ═══ BouncyRect ═══ */
-function BouncyRect(props){var items=props.items,aW=props.areaW,aH=props.areaH,oX=props.offsetX,oY=props.offsetY,iR=props.itemR,go=props.go,sharedIds=props.sharedIds;var n=items.length,stRef=useRef(null),tickState=useState(0),setTick=tickState[1];if(!stRef.current||stRef.current.length!==n)stRef.current=items.map(function(){var a=Math.random()*Math.PI*2;return{x:aW*0.2+Math.random()*aW*0.6,y:aH*0.2+Math.random()*aH*0.6,vx:Math.cos(a)*0.15,vy:Math.sin(a)*0.15};});var frRef=useRef(null);useEffect(function(){if(n===0)return;var run=true,fc=0;function step(){if(!run)return;var st=stRef.current;for(var i=0;i<st.length;i++){var o=st[i],x=o.x+o.vx,y=o.y+o.vy,vx=o.vx,vy=o.vy;var na=Math.random()*Math.PI*2;vx+=Math.cos(na)*0.01;vy+=Math.sin(na)*0.01;vx*=0.997;vy*=0.997;var spd=Math.sqrt(vx*vx+vy*vy);if(spd>0.45){vx=vx/spd*0.45;vy=vy/spd*0.45;}if(spd<0.07){var ba=Math.random()*Math.PI*2;vx=Math.cos(ba)*0.1;vy=Math.sin(ba)*0.1;}if(x<iR){x=iR;vx=Math.abs(vx)*0.8;}if(x>aW-iR){x=aW-iR;vx=-Math.abs(vx)*0.8;}if(y<iR){y=iR;vy=Math.abs(vy)*0.8;}if(y>aH-iR){y=aH-iR;vy=-Math.abs(vy)*0.8;}st[i]={x:x,y:y,vx:vx,vy:vy};}for(var i2=0;i2<st.length;i2++)for(var j=i2+1;j<st.length;j++){var dx=st[j].x-st[i2].x,dy=st[j].y-st[i2].y,d=Math.sqrt(dx*dx+dy*dy)||0.1,minD=iR*2+3;if(d<minD){var ol=(minD-d)/2,nx=dx/d,ny=dy/d;st[i2].x-=nx*ol;st[i2].y-=ny*ol;st[j].x+=nx*ol;st[j].y+=ny*ol;var rv=(st[i2].vx-st[j].vx)*nx+(st[i2].vy-st[j].vy)*ny;if(rv>0){st[i2].vx-=rv*nx*0.7;st[i2].vy-=rv*ny*0.7;st[j].vx+=rv*nx*0.7;st[j].vy+=rv*ny*0.7;}}}fc++;if(fc%2===0)setTick(function(t){return t+1;});frRef.current=requestAnimationFrame(step);}frRef.current=requestAnimationFrame(step);return function(){run=false;cancelAnimationFrame(frRef.current);};},[n,iR,aW,aH]);var st=stRef.current||[],fs=Math.max(10,Math.min(20,iR*0.6));return <g>{items.map(function(item,i){var p=st[i];if(!p)return null;var isS=sharedIds&&sharedIds.indexOf(item.id)>=0;return <BDot key={item.id} cx={oX+p.x} cy={oY+p.y} r={iR} color={item.color||"#888"} emoji={item.emoji} gems={item.gems} fontSize={fs} onClick={function(){go(item.id,"in");}} highlight={isS}/>;})}</g>;}
+/* ═══ BouncyRect (静的化: grid packingで矩形内配置) ═══ */
+function BouncyRect(props) {
+  var items = props.items
+  var aW = props.areaW, aH = props.areaH
+  var oX = props.offsetX, oY = props.offsetY
+  var iR = props.itemR, go = props.go
+  var sharedIds = props.sharedIds
+  var n = items.length
+  var positions = useMemo(function() {
+    if (n === 0) return []
+    // aspect ratio に応じて col 数を決める
+    var cols = Math.max(1, Math.round(Math.sqrt(Math.max(n * aW / aH, 1))))
+    var rows = Math.ceil(n / cols)
+    var cellW = aW / cols
+    var cellH = aH / rows
+    var arr = []
+    for (var i = 0; i < n; i++) {
+      var col = i % cols
+      var row = Math.floor(i / cols)
+      // 最下行が少ないときは中央寄せ
+      var rowItems = (row === rows - 1) ? (n - row * cols) : cols
+      var rowOffsetX = (cols - rowItems) * cellW / 2
+      arr.push({
+        x: rowOffsetX + col * cellW + cellW / 2,
+        y: row * cellH + cellH / 2,
+      })
+    }
+    return arr
+  }, [n, aW, aH])
+  var fs = Math.max(10, Math.min(20, iR * 0.6))
+  if (n === 0) return null
+  return <g>
+    {items.map(function(item, i) {
+      var p = positions[i]; if (!p) return null
+      var isS = sharedIds && sharedIds.indexOf(item.id) >= 0
+      return <BDot key={item.id} cx={oX+p.x} cy={oY+p.y} r={iR}
+        color={item.color||"#888"} emoji={item.emoji} gems={item.gems}
+        fontSize={fs}
+        onClick={function() { go(item.id, "in") }}
+        highlight={isS}/>
+    })}
+  </g>
+}
 
 /* ═══ ChildRing ═══ */
 function ChildRing(props){var child=props.child,ccx=props.ccx,ccy=props.ccy,cr=props.cr,go=props.go,sharedIds=props.sharedIds;var hovState=useState(false),hov=hovState[0],setHov=hovState[1];var c=child.color||"#888",hasGC=child.children&&child.children.length>0;var cFs=Math.max(8,Math.min(12,cr*0.11));return <g onMouseEnter={function(){setHov(true);}} onMouseLeave={function(){setHov(false);}}><circle cx={ccx} cy={ccy} r={cr} fill={c+"12"} stroke={c+(hov?"88":"55")} strokeWidth={hov?2:1.5} style={{cursor:"pointer",transition:"stroke-width .2s"}} onClick={function(e){e.stopPropagation();go(child.id,"in");}}/><StackedGems x={ccx} y={ccy-cr+4} gems={child.gems} color={c} active={false} fs={cFs} align="center" maxSecondary={0}/>{hasGC&&<BouncyGC items={child.children} cx={ccx} cy={ccy} parentR={cr} color={c} sharedIds={sharedIds}/>}{hasGC&&<text x={ccx} y={ccy+cr-7} textAnchor="middle" fontSize={7} fill={c+"55"} fontFamily="'Noto Sans JP',sans-serif" style={{pointerEvents:"none"}}>{child.children.length}体</text>}</g>;}
