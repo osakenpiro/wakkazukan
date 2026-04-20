@@ -20,11 +20,49 @@
       .splash .ring{width:64px;height:64px;border:3px solid transparent;border-top-color:#e9b44c;border-right-color:#e9b44c;border-radius:50%;animation:sp 1s linear infinite}
       @keyframes sp{to{transform:rotate(360deg)}}
     </style>
-    <script type="module" crossorigin src="/wakkazukan/assets/index-CmWiV00t.js"></script>
+    <script type="module" crossorigin src="/wakkazukan/assets/index-n_VKardr.js"></script>
     <link rel="modulepreload" crossorigin href="/wakkazukan/assets/rolldown-runtime-2JzG8er9.js">
     <link rel="modulepreload" crossorigin href="/wakkazukan/assets/react-DdZaIFa_.js">
   </head>
   <body>
     <div id="root"><div class="splash"><div class="ring"></div></div></div>
-  </body>
+  <!-- osakenpiro support button v1 -->
+<style>
+  .osk-support-btn {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    background: linear-gradient(135deg, #FFDD00 0%, #FFC700 100%);
+    color: #1a1a1a;
+    padding: 10px 16px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    z-index: 99999;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .osk-support-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  }
+  @media (max-width: 480px) {
+    .osk-support-btn { font-size: 12px; padding: 8px 12px; }
+  }
+</style>
+<a href="https://www.buymeacoffee.com/osakenpiro"
+   target="_blank"
+   rel="noopener noreferrer"
+   class="osk-support-btn"
+   aria-label="osakenpiroを応援する">
+  ☕ <span>応援</span>
+</a>
+<!-- /osakenpiro support button -->
+
+</body>
 </html>
