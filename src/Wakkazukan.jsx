@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import VRHeader from "./VRHeader";
 
 /* ═══ Pokemon 151 — type colors / habitat / size ═══ */
 var TC={"ノーマル":"#a8a878","ほのお":"#f08030","みず":"#6890f0","でんき":"#f8d030","くさ":"#78c850","こおり":"#98d8d8","かくとう":"#c03028","どく":"#a040a0","じめん":"#e0c068","ひこう":"#a890f0","エスパー":"#f85888","むし":"#a8b820","いわ":"#b8a038","ゴースト":"#705898","ドラゴン":"#7038f8"};
@@ -1463,51 +1464,52 @@ export default function WakkazukanV48(){
     Math.round(95+(10-95)*mainDepthT) + ")";
 
   return <div style={{width:"100%",minHeight:"100vh",background:containerBg,fontFamily:"'Noto Sans JP','Hiragino Sans',sans-serif",color:"#e0e0e0",display:"flex",flexDirection:"column",alignItems:"center",padding:"8px 0",gap:isCompare?6:0,transition:"background .5s ease",position:"relative"}}>
-    {/* ═══ Beta banner + Search — top-right fixed ═══ */}
-    <div style={{position:"absolute",top:8,right:10,display:"flex",alignItems:"center",gap:6,zIndex:50,fontSize:10,fontFamily:"'Noto Sans JP',sans-serif"}}>
-      {/* VR共通検索 */}
-      <div style={{position:"relative"}}>
-        <input value={searchQuery} onChange={function(e){setSearchQuery(e.target.value);setSearchOpen(true);}}
-          onFocus={function(){setSearchOpen(true);}}
-          placeholder="🔍 検索…"
-          style={{width:isSearchOpen&&searchQuery?160:100,padding:"4px 24px 4px 8px",fontSize:11,
-            background:"#0a162888",border:"1px solid "+(searchQuery?"#e9b44c":"#ffffff22"),borderRadius:8,
-            color:"#e0e0e0",outline:"none",transition:"all 0.2s",backdropFilter:"blur(6px)",
-            fontFamily:"'Noto Sans JP',sans-serif"}}/>
-        {searchQuery&&<button onClick={function(){setSearchQuery("");setSearchOpen(false);}} style={{
-          position:"absolute",right:4,top:"50%",transform:"translateY(-50%)",
-          background:"none",border:"none",color:"#ffffff55",fontSize:10,cursor:"pointer",padding:2}}>✕</button>}
-        {isSearchOpen&&searchQuery.trim()&&<div style={{
-          position:"absolute",top:"100%",right:0,marginTop:4,
-          background:"rgba(10,22,40,0.97)",border:"1px solid #e9b44c44",borderRadius:10,
-          width:240,maxHeight:300,overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
-          backdropFilter:"blur(8px)",zIndex:60}}>
-          <div style={{padding:"6px 10px",fontSize:10,color:"#ffffff55",borderBottom:"1px solid #ffffff11"}}>
-            {searchResults.length>0?searchResults.length+"件ヒット":"見つかりません"}
-          </div>
-          {searchResults.map(function(item){
-            return <div key={item.id} onClick={function(){handleSearchJump(item.id);}}
-              style={{padding:"8px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,
-                borderBottom:"1px solid #ffffff08",transition:"background 0.15s"}}
-              onMouseEnter={function(e){e.currentTarget.style.background="#ffffff11";}}
-              onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>
-              <span style={{fontSize:16}}>{item.emoji||"·"}</span>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:12,fontWeight:600,color:"#e0e0e0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>
-                {item.desc&&<div style={{fontSize:9,color:"#ffffff55",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.desc}</div>}
-              </div>
-            </div>;
-          })}
-        </div>}
-      </div>
-      <span style={{background:"#e9b44c22",border:"1px solid #e9b44c88",color:"#e9b44c",padding:"3px 8px",borderRadius:10,fontWeight:"bold",letterSpacing:"0.05em"}}>β BETA</span>
-      <a href="./manual.html" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#e9b44c";e.currentTarget.style.borderColor="#e9b44c";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>📘 マニュアル</a>
-      <a href="./manual.html#feedback" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#e9b44c";e.currentTarget.style.borderColor="#e9b44c";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>💬 ご意見</a>
-      <a href="https://osakenpiro.github.io/banet-map/" target="_blank" rel="noreferrer" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#06d6a0";e.currentTarget.style.borderColor="#06d6a0";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>🌀 バネット</a>
-      <a href="https://osakenpiro.github.io/tana-zukan/" target="_blank" rel="noreferrer" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#ffd166";e.currentTarget.style.borderColor="#ffd166";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>📚 たな</a>
-      <a href="https://osakenpiro.github.io/hyakumasu/" target="_blank" rel="noreferrer" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#ef476f";e.currentTarget.style.borderColor="#ef476f";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>🔢 百ます</a>
-      <a href="https://osakenpiro.github.io/vr-akinator/" target="_blank" rel="noreferrer" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s"}} onMouseEnter={function(e){e.currentTarget.style.color="#f85888";e.currentTarget.style.borderColor="#f85888";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>🧙 魔神</a>
-    </div>
+    {/* ═══ Floating VR Header — top-right fixed ═══ */}
+    <VRHeader
+      variant="floating"
+      currentApp="wakka"
+      version="β BETA"
+      centerSlot={
+        <div style={{position:"relative"}}>
+          <input value={searchQuery} onChange={function(e){setSearchQuery(e.target.value);setSearchOpen(true);}}
+            onFocus={function(){setSearchOpen(true);}}
+            placeholder="🔍 検索…"
+            style={{width:isSearchOpen&&searchQuery?160:100,padding:"4px 24px 4px 8px",fontSize:11,
+              background:"#0a162888",border:"1px solid "+(searchQuery?"#e9b44c":"#ffffff22"),borderRadius:8,
+              color:"#e0e0e0",outline:"none",transition:"all 0.2s",backdropFilter:"blur(6px)",
+              fontFamily:"'Noto Sans JP',sans-serif"}}/>
+          {searchQuery&&<button onClick={function(){setSearchQuery("");setSearchOpen(false);}} style={{
+            position:"absolute",right:4,top:"50%",transform:"translateY(-50%)",
+            background:"none",border:"none",color:"#ffffff55",fontSize:10,cursor:"pointer",padding:2}}>✕</button>}
+          {isSearchOpen&&searchQuery.trim()&&<div style={{
+            position:"absolute",top:"100%",right:0,marginTop:4,
+            background:"rgba(10,22,40,0.97)",border:"1px solid #e9b44c44",borderRadius:10,
+            width:240,maxHeight:300,overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,0.5)",
+            backdropFilter:"blur(8px)",zIndex:60}}>
+            <div style={{padding:"6px 10px",fontSize:10,color:"#ffffff55",borderBottom:"1px solid #ffffff11"}}>
+              {searchResults.length>0?searchResults.length+"件ヒット":"見つかりません"}
+            </div>
+            {searchResults.map(function(item){
+              return <div key={item.id} onClick={function(){handleSearchJump(item.id);}}
+                style={{padding:"8px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,
+                  borderBottom:"1px solid #ffffff08",transition:"background 0.15s"}}
+                onMouseEnter={function(e){e.currentTarget.style.background="#ffffff11";}}
+                onMouseLeave={function(e){e.currentTarget.style.background="transparent";}}>
+                <span style={{fontSize:16}}>{item.emoji||"·"}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:600,color:"#e0e0e0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>
+                  {item.desc&&<div style={{fontSize:9,color:"#ffffff55",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.desc}</div>}
+                </div>
+              </div>;
+            })}
+          </div>}
+        </div>
+      }
+      rightSlot={<>
+        <a href="./manual.html" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s",fontSize:11,whiteSpace:"nowrap"}} onMouseEnter={function(e){e.currentTarget.style.color="#e9b44c";e.currentTarget.style.borderColor="#e9b44c";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>📘 マニュアル</a>
+        <a href="./manual.html#feedback" style={{color:"#ffffff88",textDecoration:"none",border:"1px solid #ffffff22",padding:"3px 8px",borderRadius:10,transition:"all .2s",fontSize:11,whiteSpace:"nowrap"}} onMouseEnter={function(e){e.currentTarget.style.color="#e9b44c";e.currentTarget.style.borderColor="#e9b44c";}} onMouseLeave={function(e){e.currentTarget.style.color="#ffffff88";e.currentTarget.style.borderColor="#ffffff22";}}>💬 ご意見</a>
+      </>}
+    />
     {/* ═══ Dataset switcher — topmost tab row ═══ */}
     <div style={{display:"flex",alignItems:"center",gap:8,paddingBottom:6,paddingTop:2}}>
       <span style={{fontSize:9,color:"#ffffff55",fontFamily:"'JetBrains Mono',monospace",letterSpacing:"0.15em",textTransform:"uppercase",marginRight:4}}>dataset</span>
